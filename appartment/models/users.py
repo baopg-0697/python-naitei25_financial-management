@@ -28,15 +28,11 @@ class UserManager(BaseUserManager):
 
 
 class User(AbstractBaseUser):
-    user_id = models.CharField(
-        max_length=StringLength.SHORT.value, primary_key=True
-    )
+    user_id = models.CharField(max_length=StringLength.SHORT.value, primary_key=True)
     full_name = models.CharField(max_length=StringLength.EXTRA_LONG.value)
     email = models.EmailField(max_length=StringLength.LONG.value, unique=True)
     phone = models.CharField(max_length=StringLength.SHORT.value)
-    role = models.ForeignKey(
-        "Role", on_delete=models.RESTRICT, db_column="role_id"
-    )
+    role = models.ForeignKey("Role", on_delete=models.RESTRICT, db_column="role_id")
     province = models.ForeignKey(
         "Province",
         on_delete=models.RESTRICT,
@@ -63,9 +59,10 @@ class User(AbstractBaseUser):
     )
 
     # Các trường bắt buộc cho Django authentication
-    is_active = models.BooleanField(default=True)
-    is_staff = models.BooleanField(default=False)
-    is_superuser = models.BooleanField(default=False)
+    is_active = models.IntegerField(default=1)
+    is_deleted = models.IntegerField(default=0)
+    is_staff = models.IntegerField(default=0)
+    is_superuser = models.IntegerField(default=0)
     date_joined = models.DateTimeField(default=timezone.now)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -90,17 +87,3 @@ class User(AbstractBaseUser):
 
     def has_module_perms(self, app_label):
         return self.is_active and self.is_superuser
-
-    objects = UserManager()
-
-    USERNAME_FIELD = "email"  # Sử dụng email để đăng nhập
-    REQUIRED_FIELDS = ["full_name"]  # Các trường bắt buộc khi tạo superuser
-
-    class Meta:
-        db_table = "users"
-
-    def __str__(self):
-        return self.full_name
-
-    def get_full_name(self):
-        return self.full_name

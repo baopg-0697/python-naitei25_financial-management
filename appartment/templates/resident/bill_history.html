@@ -1,0 +1,297 @@
+{% extends "base_resident.html" %}
+{% load i18n %}
+{% block content %}
+{% load static %}
+{% load humanize %}
+{% load bill_filters %}
+
+<div x-data="{ isModalOpen: false }" class="container mx-auto mt-6 px-4">
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold text-gray-800">
+            <i class="fas fa-file-invoice-dollar text-blue-500 mr-2"></i>
+            {% trans "Lịch sử hóa đơn" %}
+        </h1>
+        {% if has_pending_drafts %}
+            <button @click="isModalOpen = true" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-md flex items-center">
+                <i class="fas fa-bell animate-pulse mr-2"></i>
+                {% blocktrans with count=pending_drafts|length %}Bạn có {{ count }} hóa đơn nháp cần xác nhận{% endblocktrans %}
+            </button>
+        {% endif %}
+    </div>
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div class="bg-gradient-to-br from-indigo-500 to-purple-600 text-white rounded-lg p-6 text-center shadow-lg">
+            <h3 class="text-2xl font-semibold">{{ total_bills }}</h3>
+            <p class="mt-1"><i class="fas fa-file-invoice mr-1"></i> {% trans "Tổng hóa đơn" %}</p>
+        </div>
+        <div class="bg-green-500 text-white rounded-lg p-6 text-center shadow-lg">
+            <h3 class="text-2xl font-semibold">{{ paid_bills }}</h3>
+            <p class="mt-1"><i class="fas fa-check-circle mr-1"></i> {% trans "Đã thanh toán" %}</p>
+        </div>
+        <div class="bg-yellow-500 text-white rounded-lg p-6 text-center shadow-lg">
+            <h3 class="text-2xl font-semibold">{{ unpaid_bills }}</h3>
+            <p class="mt-1"><i class="fas fa-clock mr-1"></i> {% trans "Chưa thanh toán" %}</p>
+        </div>
+    </div>
+
+    <!-- Bills Table -->
+    {% if page_obj.object_list %}
+        <div class="bg-white rounded-lg shadow-lg overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full table-auto">
+                    <thead>
+                        <tr class="bg-gray-50 text-gray-700 font-semibold border-b-2 border-gray-200">
+                            <th class="p-4 text-left"><i class="fas fa-home mr-1"></i> {% trans "Phòng" %}</th>
+                            <th class="p-4 text-left"><i class="fas fa-calendar-alt mr-1"></i> {% trans "Tháng" %}</th>
+                            <th class="p-4 text-left"><i class="fas fa-bed mr-1"></i> {% trans "Tiền nhà" %}</th>
+                            <th class="p-4 text-left"><i class="fas fa-bolt mr-1"></i> {% trans "Tiền điện" %}</th>
+                            <th class="p-4 text-left"><i class="fas fa-tint mr-1"></i> {% trans "Tiền nước" %}</th>
+                            <th class="p-4 text-left"><i class="fas fa-plus-circle mr-1"></i> {% trans "Dịch vụ thêm" %}</th>
+                            <th class="p-4 text-left"><i class="fas fa-money-bill-wave mr-1"></i> {% trans "Tổng tiền" %}</th>
+                            <th class="p-4 text-left"><i class="fas fa-info-circle mr-1"></i> {% trans "Trạng thái" %}</th>
+                            <th class="p-4 text-left"><i class="fas fa-calendar-times mr-1"></i> {% trans "Hạn thanh toán" %}</th>
+                            <th class="p-4 text-left"><i class="fas fa-calendar-times mr-1"></i> {% trans "Thanh toán ngay" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for bill in page_obj %}
+                            <tr class="hover:bg-gray-50 transition-colors border-b border-gray-100">
+                                <td class="p-4">
+                                    {{ bill.room.room_id|room_id_badge }}
+                                </td>
+                                <td class="p-4 text-gray-700">
+                                    {{ bill.bill_month|date:"m/Y" }}
+                                </td>
+                                <td class="p-4">
+                                    {{ bill.rent_amount|format_currency }}
+                                </td>
+                                <td class="p-4">
+                                    {{ bill.electricity_amount|format_currency }}
+                                </td>
+                                <td class="p-4">
+                                    {{ bill.water_amount|format_currency }}
+                                </td>
+                                <td class="p-4">
+                                    {{ bill.additional_service_amount|format_currency }}
+                                </td>
+                                <td class="p-4">
+                                    {{ bill.total_amount|format_total_amount }}
+                                </td>
+                                <td class="p-4">
+                                    {{ bill.status|payment_status_badge }}
+                                </td>
+                                <td class="p-4">
+                                    {{ bill|format_due_date }}
+                                </td>
+                                <td class="p-4 text-center">
+                                    {% if bill.status == "unpaid" %}
+                                        <form method="post" action="{% url 'create_payment' bill.bill_id %}">
+                                            {% csrf_token %}
+                                            <button 
+                                                type="submit" 
+                                                class="bg-red-100 text-red-800 font-medium px-2.5 py-0.5 rounded-full inline-flex items-center">
+                                                {% trans "Thanh toán" %}
+                                            </button>
+                                        </form>
+                                    {% else %}
+                                        <i class="fas fa-check-circle mr-1 text-green-800"></i>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Pagination -->
+        {% if page_obj.has_other_pages %}
+            <nav aria-label="{% trans 'Phân trang hóa đơn' %}" class="mt-8">
+                <ul class="flex justify-center items-center space-x-1">
+                    {% if page_obj.has_previous %}
+                        <li>
+                            <a class="px-3 py-2 text-sm leading-tight text-gray-500 bg-white border border-gray-300 rounded-l-lg hover:bg-gray-100 hover:text-gray-700 transition-colors" href="?page=1">
+                                <i class="fas fa-angle-double-left mr-1"></i> {% trans "Đầu" %}
+                            </a>
+                        </li>
+                        <li>
+                            <a class="px-3 py-2 text-sm leading-tight text-gray-500 bg-white border border-gray-300 hover:bg-gray-100 hover:text-gray-700 transition-colors" href="?page={{ page_obj.previous_page_number }}">
+                                <i class="fas fa-angle-left mr-1"></i> {% trans "Trước" %}
+                            </a>
+                        </li>
+                    {% endif %}
+
+                    <!-- Page numbers -->
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                            <li>
+                                <span class="px-3 py-2 text-sm leading-tight text-blue-600 bg-blue-50 border border-blue-300 font-medium">{{ num }}</span>
+                            </li>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <li>
+                                <a class="px-3 py-2 text-sm leading-tight text-gray-500 bg-white border border-gray-300 hover:bg-gray-100 hover:text-gray-700 transition-colors" href="?page={{ num }}">{{ num }}</a>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if page_obj.has_next %}
+                        <li>
+                            <a class="px-3 py-2 text-sm leading-tight text-gray-500 bg-white border border-gray-300 hover:bg-gray-100 hover:text-gray-700 transition-colors" href="?page={{ page_obj.next_page_number }}">
+                                {% trans "Sau" %} <i class="fas fa-angle-right ml-1"></i>
+                            </a>
+                        </li>
+                        <li>
+                            <a class="px-3 py-2 text-sm leading-tight text-gray-500 bg-white border border-gray-300 rounded-r-lg hover:bg-gray-100 hover:text-gray-700 transition-colors" href="?page={{ page_obj.paginator.num_pages }}">
+                                {% trans "Cuối" %} <i class="fas fa-angle-double-right ml-1"></i>
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+
+            <!-- Page info -->
+            <div class="text-center text-gray-500 mt-4 text-sm">
+                {% blocktrans with current=page_obj.number total=page_obj.paginator.num_pages count=page_obj.paginator.count %}
+                Trang {{ current }} / {{ total }} ({{ count }} hóa đơn)
+                {% endblocktrans %}
+            </div>
+        {% endif %}
+
+    {% else %}
+        <!-- No Bills Found -->
+        <div class="text-center py-16">
+            <div class="mx-auto w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-6">
+                <i class="fas fa-file-invoice-dollar text-4xl text-gray-400"></i>
+            </div>
+            <h3 class="text-xl font-semibold text-gray-600 mb-2">{% trans "Không có hóa đơn nào" %}</h3>
+            <p class="text-gray-500">{% trans "Bạn chưa có hóa đơn nào hoặc chưa từng ở phòng nào." %}</p>
+        </div>
+    {% endif %}
+    {% if has_pending_drafts %}
+    <div x-show="isModalOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4" style="display: none;">
+        <div @click.away="isModalOpen = false" @keydown.escape.window="isModalOpen = false" class="bg-white p-8 rounded-lg shadow-xl w-full max-w-2xl">
+            <div class="flex justify-between items-center">
+                 <h2 class="text-2xl font-bold mb-4">{% trans "Xác nhận Hóa đơn nháp" %}</h2>
+                 <button @click="isModalOpen = false" class="text-2xl text-gray-400 hover:text-gray-600">&times;</button>
+            </div>
+            <p class="text-sm text-gray-600 mb-6">{% trans "Vui lòng kiểm tra và xác nhận các chi phí dưới đây." %}</p>
+            
+            <div class="space-y-6">
+                {% for draft in pending_drafts %}
+                <div class="border p-4 rounded-lg" x-data="{ isRejecting: false }">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <p class="font-bold">{{ draft.get_draft_type_display }} - {% trans "Tháng" %} {{ draft.bill_month|date:"m/Y" }}</p>
+                            <p class="text-xl font-semibold text-blue-600">{{ draft.total_amount|intcomma }} VNĐ</p>
+                        </div>
+                        <div class="flex space-x-2">
+                            <form action="{% url 'resident_confirm_draft_bill' draft.pk %}" method="post">
+                                {% csrf_token %}
+                                <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded">{% trans "Xác nhận" %}</button>
+                            </form>
+                            <button @click="isRejecting = !isRejecting" class="bg-red-500 text-white px-4 py-2 rounded">{% trans "Từ chối" %}</button>
+                        </div>
+                    </div>
+                    <div x-show="isRejecting" x-transition class="mt-4">
+                        <form action="{% url 'resident_reject_draft_bill' draft.pk %}" method="post">
+                            {% csrf_token %}
+                            <label for="rejection_reason_{{ draft.pk }}" class="block text-sm font-medium">{% trans "Lý do từ chối" %}:</label>
+                            <textarea name="rejection_reason" id="rejection_reason_{{ draft.pk }}" rows="2" class="w-full border rounded p-2 mt-1" required></textarea>
+                            <div class="text-right mt-2">
+                                <button type="submit" class="bg-red-600 text-white px-4 py-2 rounded text-sm">{% trans "Gửi phản hồi" %}</button>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="mt-4 overflow-x-auto">
+
+                        {% if draft.draft_type == 'ELECTRIC_WATER' %}
+                            <!-- BẢNG ĐIỆN NƯỚC -->
+                            <table class="w-full table-auto text-sm border">
+                                <thead class="bg-gray-100">
+                                    <tr class="text-left">
+                                        <th class="p-2">{% trans "Hạng mục" %}</th>
+                                        <th class="p-2">{% trans "Chỉ số cũ" %}</th>
+                                        <th class="p-2">{% trans "Chỉ số mới" %}</th>
+                                        <th class="p-2">{% trans "Tiêu thụ" %}</th>
+                                        <th class="p-2">{% trans "Đơn giá" %}</th>
+                                        <th class="p-2 text-right">{% trans "Thành tiền" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td class="p-2 font-medium">{% trans "Điện" %}</td>
+                                        <td class="p-2">{{ draft.details.old_electric_index }}</td>
+                                        <td class="p-2">{{ draft.details.new_electric_index }}</td>
+                                        <td class="p-2">{{ draft.details.electric_consumption }} kWh</td>
+                                        <td class="p-2">{{ draft.details.electric_unit_price|intcomma }} VNĐ</td>
+                                        <td class="p-2 text-right font-semibold">{{ draft.details.electric_cost|intcomma }} VNĐ</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="p-2 font-medium">{% trans "Nước" %}</td>
+                                        <td class="p-2">{{ draft.details.old_water_index }}</td>
+                                        <td class="p-2">{{ draft.details.new_water_index }}</td>
+                                        <td class="p-2">{{ draft.details.water_consumption }} m³</td>
+                                        <td class="p-2">{{ draft.details.water_unit_price|intcomma }} VNĐ</td>
+                                        <td class="p-2 text-right font-semibold">{{ draft.details.water_cost|intcomma }} VNĐ</td>
+                                    </tr>
+                                </tbody>
+                                <tfoot class="bg-gray-50">
+                                    <tr>
+                                        <td colspan="5" class="p-2 text-right font-bold">{% trans "TỔNG CỘNG" %}</td>
+                                        <td class="p-2 text-right font-bold text-blue-600">{{ draft.total_amount|intcomma }} VNĐ</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+
+                        {% elif draft.draft_type == 'SERVICES' %}
+                            <!-- BẢNG DỊCH VỤ -->
+                            <table class="w-full table-auto text-sm border">
+                                <thead class="bg-gray-100">
+                                    <tr class="text-left">
+                                        <th class="p-2">{% trans "Tên Dịch vụ" %}</th>
+                                        <th class="p-2">{% trans "Loại hình" %}</th>
+                                        <th class="p-2">{% trans "Số lượng" %}</th>
+                                        <th class="p-2">{% trans "Đơn giá" %}</th>
+                                        <th class="p-2 text-right">{% trans "Thành tiền" %}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for service in draft.details.services %}
+                                    <tr>
+                                        <td class="p-2 font-medium">{{ service.name }}</td>
+                                        <td class="p-2">{{ service.type }}</td>
+                                        <td class="p-2">
+                                            {% if service.type|upper == 'PER_PERSON' %}
+                                                {{ service.num_residents }}
+                                            {% else %}
+                                                1
+                                            {% endif %}
+                                        </td>
+                                        <td class="p-2">{{ service.unit_price|intcomma }} VNĐ</td>
+                                        <td class="p-2 text-right font-semibold">{{ service.cost|intcomma }} VNĐ</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                                <tfoot class="bg-gray-50">
+                                    <tr>
+                                        <td colspan="4" class="p-2 text-right font-bold">{% trans "TỔNG CỘNG" %}</td>
+                                        <td class="p-2 text-right font-bold text-blue-600">{{ draft.total_amount|intcomma }} VNĐ</td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+
+                        {% else %}
+                            <!-- TRƯỜNG HỢP KHÁC -->
+                            <p class="italic text-gray-500">{% trans "Không có chi tiết hiển thị." %}</p>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}

@@ -14,11 +14,16 @@ from pathlib import Path
 import os
 from dotenv import load_dotenv
 from django.utils.translation import gettext_lazy as _
+from payos import PayOS
 
 load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+LOCALE_PATHS = [
+    os.path.join(BASE_DIR, "locale"),
+]
 
 
 # Quick-start development settings - unsuitable for production
@@ -27,14 +32,30 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get("SECRET_KEY")
 
+# BASE_URL = os.getenv("BASE_URL")
+
+# PAYOS_RETURN_URL = os.getenv(
+#     "PAYOS_RETURN_URL",
+#     f"{BASE_URL}/appartment/resident/bank_payment/transact_success/",
+# )
+
+# PAYOS_CANCEL_URL = os.getenv(
+#     "PAYOS_CANCEL_URL",
+#     f"{BASE_URL}/appartment/resident/bank_payment/transact_success/",
+# )
+
+# PAYOS = PayOS(
+#     client_id=os.getenv("PAYOS_CLIENT_ID"),
+#     api_key=os.getenv("PAYOS_API_KEY"),
+#     checksum_key=os.getenv("PAYOS_CHECKSUM_KEY"),
+# )
+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get("DEBUG")
 
-ALLOWED_HOSTS = []
-
+# ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS").split(",")
 
 # Application definition
-
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -42,8 +63,14 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.humanize",
     "appartment.apps.AppartmentConfig",
+    "tailwind",
+    "theme",
+    "django_crontab",
 ]
+
+TAILWIND_APP_NAME = "theme"
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -53,6 +80,8 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "django_browser_reload.middleware.BrowserReloadMiddleware",
+    "django.middleware.locale.LocaleMiddleware",
 ]
 
 ROOT_URLCONF = "apartmentmanager.urls"
@@ -60,7 +89,7 @@ ROOT_URLCONF = "apartmentmanager.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -82,9 +111,7 @@ WSGI_APPLICATION = "apartmentmanager.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.mysql",
-        "NAME": os.environ.get(
-            "DB_DATABASE"
-        ),  # Tên database đã tạo trong MySQL
+        "NAME": os.environ.get("DB_DATABASE"),  # Tên database đã tạo trong MySQL
         "USER": os.environ.get("DB_USERNAME"),  # Ví dụ: 'root'
         "PASSWORD": os.environ.get("DB_PASSWORD"),
         "HOST": os.environ.get(
@@ -126,6 +153,10 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # Internationalization
 # https://docs.djangoproject.com/en/4.2/topics/i18n/
+LANGUAGES = [
+    ("en", "English"),
+    ("vi", "Vietnamese"),
+]
 
 LANGUAGE_CODE = "vi"
 
@@ -135,14 +166,41 @@ USE_I18N = True
 
 USE_TZ = True
 
+# Path to translated folder (locale/)
+LOCALE_PATHS = [
+    BASE_DIR / "locale",
+]
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
 STATIC_URL = "static/"
 
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, "theme/static"),
+    os.path.join(BASE_DIR, "static"),
+]
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "appartment.User"
+LOGIN_URL = "login"
+
+APPEND_SLASH = True
+
+# config email
+EMAIL_BACKEND = os.getenv("EMAIL_BACKEND")
+EMAIL_HOST = os.getenv("EMAIL_HOST")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", 587))
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True") == "True"
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
+
+# setup cron
+CRONJOBS = [
+    ("25 15 * * *", "appartment.tasks.send_bills.send_monthly_bills"),
+]

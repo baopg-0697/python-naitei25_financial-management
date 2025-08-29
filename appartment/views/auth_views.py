@@ -3,6 +3,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.views.decorators.csrf import csrf_protect
+from django.views.decorators.http import require_POST
 from django.utils.translation import gettext as _
 from ..forms.auth_forms import LoginForm
 
@@ -13,8 +14,10 @@ def login_view(request):
     View xử lý đăng nhập người dùng
     """
     # Nếu người dùng đã đăng nhập thì chuyển hướng về trang chính
-    # if request.user.is_authenticated:
-    #     return redirect("/")  # hoặc trang chính
+    if request.user.is_authenticated:
+        return redirect("/appartment/dashboard")  # hoặc trang chính
+    if request.method == "GET" and "next" in request.GET:
+        messages.warning(request, _("Bạn cần đăng nhập để truy cập trang này."))
 
     if request.method == "POST":
         form = LoginForm(request.POST)
@@ -50,6 +53,7 @@ def login_view(request):
     return render(request, "auth/login.html", {"form": form})
 
 
+@require_POST
 @login_required
 def logout_view(request):
     """
@@ -57,4 +61,4 @@ def logout_view(request):
     """
     logout(request)
     messages.success(request, _("Bạn đã đăng xuất thành công."))
-    return redirect("login")
+    return redirect("index")
